@@ -21,3 +21,7 @@ Main Screen: View today’s total intake and recent scan history.
 Scan Food: Tap the “Scan Food” button at the bottom. Grant camera permission if prompted. Tap “Capture” to simulate a scan and view the food report.
 History Details: Tap a history item to view its detailed nutrition report.
 Profile: Tap the avatar in the top right to access your profile. You can change your email and password or log out to return to the login screen.
+7. The app uses several image resources (e.g., chicken_and_broccoli, banana, apple, chicken_salad, protein_shake, logo, user_avatar, ic_profile_option). If any are missing, please add placeholder images with the same names in the res/drawable directory.
+All authentication and user data are stored locally for demonstration purposes. There is no backend or persistent storage; any changes to account info will be lost when the app restarts.
+The scan feature uses CameraX and will prompt for camera permission at runtime. If permission is denied, scanning will not work.
+The login screen displays available test accounts at the bottom for convenience.
