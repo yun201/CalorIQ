@@ -693,7 +693,7 @@ fun ProfileScreen(
             
             // Avatar
             Column(
-                modifier = Modifier.fillMaxWidth().offset(y = (-64).dp),
+                modifier = Modifier.fillMaxWidth().offset(y = (-50).dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Image(
