@@ -21,9 +21,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -56,6 +58,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.input.KeyboardType
@@ -250,7 +253,7 @@ fun CameraScreen(onNavigateBack: () -> Unit) {
                         if (isLoading) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary)
                         } else {
-                            Text("Show Report")
+                            Text("Capture")
                         }
                     }
                 }
@@ -544,6 +547,16 @@ fun ProfileScreen(onNavigateBack: () -> Unit, onLogout: () -> Unit, onChangeInfo
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            Icon(
+                imageVector = Icons.Filled.Person,
+                contentDescription = "Profile Picture",
+                modifier = Modifier
+                    .size(128.dp)
+                    .clip(CircleShape),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(32.dp))
+
             Button(onClick = onChangeInfoClick) {
                 Text("Change Info")
             }
