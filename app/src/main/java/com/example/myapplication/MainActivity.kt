@@ -12,6 +12,9 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,12 +29,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -59,10 +62,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -89,17 +97,78 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+data class Ingredient(val name: String, val calories: Int)
+data class NutrientInfo(val name: String, val weight: Int, val percentage: Int)
+data class FoodReport(val imageResId: Int, val ingredients: List<Ingredient>, val nutrients: List<NutrientInfo>) {
+    val totalCalories: Int
+        get() = ingredients.sumOf { it.calories }
+}
+
+val foodReports = mapOf(
+    "chicken_broccoli" to FoodReport(
+        imageResId = R.drawable.chicken_and_broccoli,
+        ingredients = listOf(
+            Ingredient("Chicken Breast", 330),
+            Ingredient("Broccoli", 35)
+        ),
+        nutrients = listOf(
+            NutrientInfo("Protein", 22, 44),
+            NutrientInfo("Fats", 16, 32),
+            NutrientInfo("Carbs", 12, 24)
+        )
+    ),
+    "banana" to FoodReport(
+        imageResId = R.drawable.banana, // Using placeholder
+        ingredients = listOf(Ingredient("Banana", 105)),
+        nutrients = listOf(
+            NutrientInfo("Protein", 1, 4),
+            NutrientInfo("Fats", 0, 0),
+            NutrientInfo("Carbs", 27, 96)
+        )
+    ),
+    "apple" to FoodReport(
+        imageResId = R.drawable.apple, // Using placeholder
+        ingredients = listOf(Ingredient("Apple", 95)),
+        nutrients = listOf(
+            NutrientInfo("Protein", 0, 0),
+            NutrientInfo("Fats", 0, 0),
+            NutrientInfo("Carbs", 25, 100)
+        )
+    ),
+        "salad" to FoodReport(
+        imageResId = R.drawable.chicken_salad, // Using placeholder
+        ingredients = listOf(
+            Ingredient("Chicken", 200),
+            Ingredient("Lettuce", 15),
+            Ingredient("Dressing", 135)
+        ),
+        nutrients = listOf(
+            NutrientInfo("Protein", 18, 30),
+            NutrientInfo("Fats", 25, 50),
+            NutrientInfo("Carbs", 10, 20)
+        )
+    ),
+    "shake" to FoodReport(
+        imageResId = R.drawable.protein_shake, // Using placeholder
+        ingredients = listOf(Ingredient("Protein Shake", 180)),
+        nutrients = listOf(
+            NutrientInfo("Protein", 30, 70),
+            NutrientInfo("Fats", 2, 10),
+            NutrientInfo("Carbs", 10, 20)
+        )
+    )
+)
+
 @Composable
 fun NavigationApp() {
     val navController = rememberNavController()
     val defaultCredentials = remember { mutableStateOf(listOf("123" to "123")) }
-    // Dummy data for the dashboard
     val scanHistory = remember {
         listOf(
-            ScanHistoryItem(1, "Banana", 105, System.currentTimeMillis() - 1000 * 60 * 5),
-            ScanHistoryItem(2, "Apple", 95, System.currentTimeMillis() - 1000 * 60 * 60 * 2),
-            ScanHistoryItem(3, "Chicken Salad", 350, System.currentTimeMillis() - 1000 * 60 * 60 * 6),
-            ScanHistoryItem(4, "Protein Shake", 180, System.currentTimeMillis() - 1000 * 60 * 60 * 24)
+            ScanHistoryItem(1, "Banana", 105, System.currentTimeMillis() - 1000 * 60 * 5, "banana"),
+            ScanHistoryItem(2, "Apple", 95, System.currentTimeMillis() - 1000 * 60 * 60 * 2, "apple"),
+            ScanHistoryItem(3, "Chicken Salad", 350, System.currentTimeMillis() - 1000 * 60 * 60 * 6, "salad"),
+            ScanHistoryItem(4, "Protein Shake", 180, System.currentTimeMillis() - 1000 * 60 * 60 * 24, "shake")
         )
     }
 
@@ -115,19 +184,26 @@ fun NavigationApp() {
             )
         }
         composable("register") {
-            RegisterScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
+            RegisterScreen(onNavigateBack = { navController.popBackStack() })
         }
         composable("dashboard") {
             DashboardScreen(
                 history = scanHistory,
                 onScanFoodClick = { navController.navigate("scan") },
-                onProfileClick = { navController.navigate("profile") }
+                onProfileClick = { navController.navigate("profile") },
+                onHistoryItemClick = { item ->
+                    navController.navigate("food_report/${item.foodReportId}")
+                }
             )
         }
         composable("scan") {
-            CameraScreen(onNavigateBack = { navController.popBackStack() })
+            CameraScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onCaptureSuccess = {
+                    // Simulate capturing the main food item
+                    navController.navigate("food_report/chicken_broccoli")
+                }
+            )
         }
         composable("profile") {
             ProfileScreen(
@@ -135,9 +211,7 @@ fun NavigationApp() {
                 onChangeInfoClick = { navController.navigate("change_info") },
                 onLogout = {
                     navController.navigate("login") {
-                        popUpTo(navController.graph.startDestinationId) {
-                            inclusive = true
-                        }
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     }
                 }
             )
@@ -155,6 +229,16 @@ fun NavigationApp() {
                 }
             )
         }
+        composable("food_report/{reportId}") { backStackEntry ->
+            val reportId = backStackEntry.arguments?.getString("reportId")
+            val report = foodReports[reportId]
+            if (report != null) {
+                FoodReportScreen(report = report, onNavigateBack = { navController.popBackStack() })
+            } else {
+                // Handle error: report not found
+                Text("Error: Food report not found.", modifier = Modifier.padding(16.dp))
+            }
+        }
     }
 }
 
@@ -169,15 +253,11 @@ fun CameraPreview(modifier: Modifier = Modifier) {
             val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
-                }
+                val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
                 val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
                 try {
                     cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(
-                        lifecycleOwner, cameraSelector, preview
-                    )
+                    cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview)
                 } catch (exc: Exception) {
                     Log.e("CameraPreview", "Use case binding failed", exc)
                 }
@@ -190,7 +270,7 @@ fun CameraPreview(modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CameraScreen(onNavigateBack: () -> Unit) {
+fun CameraScreen(onNavigateBack: () -> Unit, onCaptureSuccess: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var hasCamPermission by remember {
@@ -198,13 +278,9 @@ fun CameraScreen(onNavigateBack: () -> Unit) {
     }
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted ->
-            hasCamPermission = granted
-        }
+        onResult = { granted -> hasCamPermission = granted }
     )
-    var showReportDialog by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
-    var foodReport by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     LaunchedEffect(key1 = true) {
         if (!hasCamPermission) {
@@ -239,67 +315,113 @@ fun CameraScreen(onNavigateBack: () -> Unit) {
                 ) {
                     Button(onClick = {
                         isLoading = true
-                        // TODO: 1. Capture image from CameraPreview
-                        // TODO: 2. Send image to your API (e.g., using Retrofit/Ktor)
-                        // TODO: 3. On response, update foodReport state and set isLoading to false
-                        // For now, we'll simulate a delay and use mock data
                         scope.launch {
-                            delay(2000)
-                            foodReport = "Apple" to "230 kcal"
+                            delay(1000) // Simulate capture and API call
                             isLoading = false
-                            showReportDialog = true
+                            onCaptureSuccess()
                         }
                     }) {
                         if (isLoading) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary)
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                         } else {
                             Text("Capture")
                         }
                     }
                 }
             } else {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Camera permission is required to use this feature.")
                 }
             }
         }
     }
+}
 
-    if (showReportDialog) {
-        foodReport?.let {
-            FoodReportDialog(
-                onDismiss = { showReportDialog = false },
-                ingredients = it.first,
-                calories = it.second
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FoodReportScreen(report: FoodReport, onNavigateBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Food Report") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
             )
+        },
+        bottomBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .background(color = Color(0xFFFDE4B7), shape = RoundedCornerShape(16.dp))
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Total Calories", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("${report.totalCalories} kcal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth(0.8f),
+                elevation = CardDefaults.cardElevation(8.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = report.imageResId),
+                    contentDescription = "Scanned food image",
+                    modifier = Modifier.fillMaxWidth(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Ingredients
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Text("Ingredients", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text("Calories", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.End, modifier = Modifier.weight(0.5f))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            report.ingredients.forEach {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(it.name, modifier = Modifier.weight(1f))
+                    Text("${it.calories} kcal", textAlign = TextAlign.End, modifier = Modifier.weight(0.5f))
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            Divider(modifier = Modifier.padding(vertical = 16.dp))
+
+            // Nutrients
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Text("Nutrients", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text("weight/g", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.weight(0.5f))
+                Text("Content", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.End, modifier = Modifier.weight(0.5f))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            report.nutrients.forEach {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(it.name, modifier = Modifier.weight(1f))
+                    Text("${it.weight}g", textAlign = TextAlign.Center, modifier = Modifier.weight(0.5f))
+                    Text("${it.percentage}%", textAlign = TextAlign.End, modifier = Modifier.weight(0.5f))
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
         }
     }
 }
 
-@Composable
-fun FoodReportDialog(onDismiss: () -> Unit, ingredients: String, calories: String) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Food Report") },
-        text = {
-            Column {
-                Text("Ingredients:", style = MaterialTheme.typography.titleMedium)
-                Text(ingredients)
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Calories:", style = MaterialTheme.typography.titleMedium)
-                Text(calories)
-            }
-        },
-        confirmButton = {
-            Button(onClick = onDismiss) {
-                Text("Close")
-            }
-        }
-    )
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -308,7 +430,6 @@ fun LoginScreen(
     onNavigateToRegister: () -> Unit = {},
     defaultCredentials: List<Pair<String, String>>
 ) {
-    // State management
     val email = remember { mutableStateOf("") }
     val password = remember { mutableStateOf("") }
     val errorMessage = remember { mutableStateOf("") }
@@ -320,46 +441,27 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = "Calorie Scanner", style = MaterialTheme.typography.headlineMedium)
+        Text(text = "CalorIQ", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(24.dp))
-        // Email input
         TextField(
             value = email.value,
-            onValueChange = {
-                email.value = it
-                errorMessage.value = "" // Clear error message
-            },
+            onValueChange = { email.value = it; errorMessage.value = "" },
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth()
         )
-
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Password input
         TextField(
             value = password.value,
-            onValueChange = {
-                password.value = it
-                errorMessage.value = "" // Clear error message
-            },
+            onValueChange = { password.value = it; errorMessage.value = "" },
             label = { Text("Password") },
             modifier = Modifier.fillMaxWidth(),
             visualTransformation = PasswordVisualTransformation()
         )
-
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Error message
         if (errorMessage.value.isNotEmpty()) {
-            Text(
-                text = errorMessage.value,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(top = 8.dp)
-            )
+            Text(text = errorMessage.value, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
             Spacer(modifier = Modifier.height(16.dp))
         }
-
-        // Login button
         Button(
             onClick = {
                 if (defaultCredentials.any { it.first == email.value && it.second == password.value }) {
@@ -372,29 +474,13 @@ fun LoginScreen(
         ) {
             Text("Login", style = MaterialTheme.typography.bodyLarge)
         }
-
         Spacer(modifier = Modifier.height(8.dp))
-
-        // Create account button
-        TextButton(onClick = onNavigateToRegister) {
-            Text("Create Account")
-        }
-
+        TextButton(onClick = onNavigateToRegister) { Text("Create Account") }
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Test account credentials
-        Text(
-            text = "Test accounts:",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-        )
+        Text("Test accounts:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
         Spacer(modifier = Modifier.height(4.dp))
         defaultCredentials.forEachIndexed { index, (email, pass) ->
-            Text(
-                text = "${index + 1}. $email / $pass",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
+            Text("${index + 1}. $email / $pass", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
         }
     }
 }
@@ -404,7 +490,6 @@ fun LoginScreen(
 fun RegisterScreen(
     onNavigateBack: () -> Unit = {}
 ) {
-    // State management
     val email = remember { mutableStateOf("") }
     val password = remember { mutableStateOf("") }
     val confirmPassword = remember { mutableStateOf("") }
@@ -419,71 +504,20 @@ fun RegisterScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(24.dp))
-
         Text(text = "Create Account", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(24.dp))
-
-        // Email input
-        OutlinedTextField(
-            value = email.value,
-            onValueChange = {
-                email.value = it
-                errorMessage.value = ""
-            },
-            label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-        )
-
+        OutlinedTextField(value = email.value, onValueChange = { email.value = it; errorMessage.value = "" }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Password input
-        OutlinedTextField(
-            value = password.value,
-            onValueChange = {
-                password.value = it
-                errorMessage.value = ""
-            },
-            label = { Text("Password") },
-            modifier = Modifier.fillMaxWidth(),
-            visualTransformation = PasswordVisualTransformation()
-        )
-
+        OutlinedTextField(value = password.value, onValueChange = { password.value = it; errorMessage.value = "" }, label = { Text("Password") }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Confirm Password input
-        OutlinedTextField(
-            value = confirmPassword.value,
-            onValueChange = {
-                confirmPassword.value = it
-                errorMessage.value = ""
-            },
-            label = { Text("Confirm Password") },
-            modifier = Modifier.fillMaxWidth(),
-            visualTransformation = PasswordVisualTransformation()
-        )
-
+        OutlinedTextField(value = confirmPassword.value, onValueChange = { confirmPassword.value = it; errorMessage.value = "" }, label = { Text("Confirm Password") }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
         Spacer(modifier = Modifier.height(24.dp))
-
-        // Error message
         if (errorMessage.value.isNotEmpty()) {
-            Text(
-                text = errorMessage.value,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+            Text(text = errorMessage.value, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 8.dp))
         }
-
-        // Success message
         if (successMessage.value) {
-            Text(
-                text = "Registration successful!",
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+            Text(text = "Registration successful!", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 8.dp))
         }
-
-        // Register button
         Button(
             onClick = {
                 if (email.value.isEmpty() || password.value.isEmpty() || confirmPassword.value.isEmpty()) {
@@ -491,29 +525,14 @@ fun RegisterScreen(
                 } else if (password.value != confirmPassword.value) {
                     errorMessage.value = "Passwords don't match"
                 } else {
-                    // Mock registration - doesn't actually save
                     successMessage.value = true
                     errorMessage.value = ""
-
-                    // Clear form after submit
-                    /* Uncomment this to clear form:
-                    email.value = ""
-                    password.value = ""
-                    confirmPassword.value = ""
-                    */
                 }
             },
             modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Register")
-        }
-
+        ) { Text("Register") }
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Back to login button
-        TextButton(onClick = onNavigateBack) {
-            Text("Back to Login")
-        }
+        TextButton(onClick = onNavigateBack) { Text("Back to Login") }
     }
 }
 
@@ -521,7 +540,8 @@ data class ScanHistoryItem(
     val id: Long,
     val foodName: String,
     val calories: Int,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val foodReportId: String
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -556,14 +576,9 @@ fun ProfileScreen(onNavigateBack: () -> Unit, onLogout: () -> Unit, onChangeInfo
                 tint = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(32.dp))
-
-            Button(onClick = onChangeInfoClick) {
-                Text("Change Info")
-            }
+            Button(onClick = onChangeInfoClick) { Text("Change Info") }
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onLogout) {
-                Text("Log Out")
-            }
+            Button(onClick = onLogout) { Text("Log Out") }
         }
     }
 }
@@ -600,34 +615,13 @@ fun ChangeInfoScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            OutlinedTextField(
-                value = email.value,
-                onValueChange = { email.value = it },
-                label = { Text("Email") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            OutlinedTextField(value = email.value, onValueChange = { email.value = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(
-                value = password.value,
-                onValueChange = { password.value = it },
-                label = { Text("New Password") },
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation()
-            )
+            OutlinedTextField(value = password.value, onValueChange = { password.value = it }, label = { Text("New Password") }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
             Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(
-                value = confirmPassword.value,
-                onValueChange = { confirmPassword.value = it },
-                label = { Text("Confirm New Password") },
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation()
-            )
+            OutlinedTextField(value = confirmPassword.value, onValueChange = { confirmPassword.value = it }, label = { Text("Confirm New Password") }, modifier = Modifier.fillMaxWidth(), visualTransformation = PasswordVisualTransformation())
             if (errorMessage.value.isNotEmpty()) {
-                Text(
-                    text = errorMessage.value,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+                Text(text = errorMessage.value, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
             }
             Spacer(modifier = Modifier.height(32.dp))
             Button(
@@ -641,9 +635,7 @@ fun ChangeInfoScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Save")
-            }
+            ) { Text("Save") }
         }
     }
 }
@@ -653,12 +645,13 @@ fun ChangeInfoScreen(
 fun DashboardScreen(
     history: List<ScanHistoryItem>,
     onScanFoodClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onHistoryItemClick: (ScanHistoryItem) -> Unit
 ) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("CalroIQ") },
+                title = { Text("CalorIQ") },
                 actions = {
                     IconButton(onClick = onProfileClick) {
                         Icon(Icons.Filled.Person, contentDescription = "Profile")
@@ -685,11 +678,8 @@ fun DashboardScreen(
             val totalCalories = history.sumOf { it.calories }
             val lastScanCalories = history.firstOrNull()?.calories ?: 0
 
-            SummaryOverview(
-                totalCalories = totalCalories,
-                lastScanCalories = lastScanCalories
-            )
-            RecentHistoryFeed(history = history)
+            SummaryOverview(totalCalories = totalCalories, lastScanCalories = lastScanCalories)
+            RecentHistoryFeed(history = history, onItemClick = onHistoryItemClick)
         }
     }
 }
@@ -725,16 +715,12 @@ fun SummaryOverview(totalCalories: Int, lastScanCalories: Int) {
 }
 
 @Composable
-fun RecentHistoryFeed(history: List<ScanHistoryItem>) {
+fun RecentHistoryFeed(history: List<ScanHistoryItem>, onItemClick: (ScanHistoryItem) -> Unit) {
     Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-        Text(
-            "Recent History",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 8.dp)
-        )
+        Text("Recent History", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 8.dp))
         LazyColumn {
             items(history) { item ->
-                HistoryItemCard(item)
+                HistoryItemCard(item = item, onClick = { onItemClick(item) })
                 Divider() // Add a divider between items
             }
         }
@@ -742,22 +728,19 @@ fun RecentHistoryFeed(history: List<ScanHistoryItem>) {
 }
 
 @Composable
-fun HistoryItemCard(item: ScanHistoryItem) {
+fun HistoryItemCard(item: ScanHistoryItem, onClick: () -> Unit) {
     val formattedTimestamp = remember(item.timestamp) {
-        // Simple time format, e.g., 9:30 AM
         SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(item.timestamp))
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onClick() }
             .padding(vertical = 8.dp, horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "${item.foodName} - ${item.calories} kcal • $formattedTimestamp",
-            style = MaterialTheme.typography.bodyLarge
-        )
+        Text(text = "${item.foodName} - ${item.calories} kcal • $formattedTimestamp", style = MaterialTheme.typography.bodyLarge)
     }
 }
