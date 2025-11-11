@@ -12,8 +12,11 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,19 +26,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -62,7 +71,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -72,11 +83,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.delay
@@ -84,7 +97,6 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -171,6 +183,8 @@ fun NavigationApp() {
             ScanHistoryItem(4, "Protein Shake", 180, System.currentTimeMillis() - 1000 * 60 * 60 * 24, "shake")
         )
     }
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
     NavHost(
         navController = navController,
@@ -189,8 +203,8 @@ fun NavigationApp() {
         composable("dashboard") {
             DashboardScreen(
                 history = scanHistory,
-                onScanFoodClick = { navController.navigate("scan") },
-                onProfileClick = { navController.navigate("profile") },
+                navController = navController,
+                currentRoute = currentRoute,
                 onHistoryItemClick = { item ->
                     navController.navigate("food_report/${item.foodReportId}")
                 }
@@ -213,7 +227,9 @@ fun NavigationApp() {
                     navController.navigate("login") {
                         popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     }
-                }
+                },
+                navController = navController,
+                currentRoute = currentRoute
             )
         }
         composable("change_info") {
@@ -313,18 +329,23 @@ fun CameraScreen(onNavigateBack: () -> Unit, onCaptureSuccess: () -> Unit) {
                         .padding(bottom = 32.dp),
                     contentAlignment = Alignment.BottomCenter
                 ) {
-                    Button(onClick = {
+                    Button(
+                        onClick = {
                         isLoading = true
                         scope.launch {
                             delay(1000) // Simulate capture and API call
                             isLoading = false
                             onCaptureSuccess()
                         }
-                    }) {
+                    },
+                        modifier = Modifier.width(180.dp).height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF3AF4A)),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
                         if (isLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                         } else {
-                            Text("Capture")
+                            Text("Capture", fontSize = 18.sp)
                         }
                     }
                 }
@@ -341,22 +362,12 @@ fun CameraScreen(onNavigateBack: () -> Unit, onCaptureSuccess: () -> Unit) {
 @Composable
 fun FoodReportScreen(report: FoodReport, onNavigateBack: () -> Unit) {
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Food Report") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        },
         bottomBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
-                    .background(color = Color(0xFFFDE4B7), shape = RoundedCornerShape(16.dp))
+                    .background(color = Color(0xFFFFCD82), shape = RoundedCornerShape(24.dp))
                     .padding(horizontal = 24.dp, vertical = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -369,56 +380,128 @@ fun FoodReportScreen(report: FoodReport, onNavigateBack: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(innerPadding) // Default padding from Scaffold
+                .verticalScroll(rememberScrollState())
         ) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth(0.8f),
-                elevation = CardDefaults.cardElevation(8.dp)
+            // Header Section
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(266.dp)
+                    .background(
+                        color = Color(0xFFF3AF4A),
+                        shape = RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp)
+                    )
             ) {
-                Image(
-                    painter = painterResource(id = report.imageResId),
-                    contentDescription = "Scanned food image",
-                    modifier = Modifier.fillMaxWidth(),
-                    contentScale = ContentScale.Crop
+                // Back button
+                IconButton(
+                    onClick = onNavigateBack,
+                    modifier = Modifier.padding(16.dp).align(Alignment.TopStart)
+                ) {
+                    Box(
+                        modifier = Modifier.size(40.dp).background(Color.Black, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    }
+                }
+                Text(
+                    text = "Your Meal Report",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.Black,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(24.dp))
 
-            // Ingredients
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Text("Ingredients", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                Text("Calories", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.End, modifier = Modifier.weight(0.5f))
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            report.ingredients.forEach {
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Text(it.name, modifier = Modifier.weight(1f))
-                    Text("${it.calories} kcal", textAlign = TextAlign.End, modifier = Modifier.weight(0.5f))
+            // Content Section
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset(y = (-160).dp) // Overlap the header
+                    .padding(horizontal = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(8.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = report.imageResId),
+                        contentDescription = "Scanned food image",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp), // Set a fixed height
+                        contentScale = ContentScale.Crop
+                    )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-            }
+                Spacer(modifier = Modifier.height(24.dp))
 
-            Divider(modifier = Modifier.padding(vertical = 16.dp))
-
-            // Nutrients
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Text("Nutrients", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                Text("weight/g", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.weight(0.5f))
-                Text("Content", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.End, modifier = Modifier.weight(0.5f))
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            report.nutrients.forEach {
+                // Ingredients
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    Text(it.name, modifier = Modifier.weight(1f))
-                    Text("${it.weight}g", textAlign = TextAlign.Center, modifier = Modifier.weight(0.5f))
-                    Text("${it.percentage}%", textAlign = TextAlign.End, modifier = Modifier.weight(0.5f))
+                    Text("Ingredients", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text("Calories", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.End, modifier = Modifier.weight(0.5f))
                 }
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                report.ingredients.forEach {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text(it.name, modifier = Modifier.weight(1f))
+                        Text("${it.calories} kcal", textAlign = TextAlign.End, modifier = Modifier.weight(0.5f))
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
+                DotEndedDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+                // Nutrients
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text("Nutrients", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text("weight/g", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.weight(0.5f))
+                    Text("Content", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.End, modifier = Modifier.weight(0.5f))
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                report.nutrients.forEach {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text(it.name, modifier = Modifier.weight(1f))
+                        Text("${it.weight}g", textAlign = TextAlign.Center, modifier = Modifier.weight(0.5f))
+                        Text("${it.percentage}%", textAlign = TextAlign.End, modifier = Modifier.weight(0.5f))
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
+                Spacer(modifier = Modifier.height(100.dp)) // Added spacer for scroll
             }
         }
+    }
+}
+
+@Composable
+fun DotEndedDivider(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.fillMaxWidth().height(2.dp)) {
+        val strokeWidth = 2.dp.toPx()
+        val dotRadius = 4.dp.toPx()
+        val y = center.y
+
+        // Draw the line
+        drawLine(
+            color = Color.Black,
+            start = androidx.compose.ui.geometry.Offset(dotRadius, y),
+            end = androidx.compose.ui.geometry.Offset(size.width - dotRadius, y),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+        // Draw the start dot
+        drawCircle(
+            color = Color.Black,
+            radius = dotRadius,
+            center = androidx.compose.ui.geometry.Offset(dotRadius, y)
+        )
+        // Draw the end dot
+        drawCircle(
+            color = Color.Black,
+            radius = dotRadius,
+            center = androidx.compose.ui.geometry.Offset(size.width - dotRadius, y)
+        )
     }
 }
 
@@ -437,10 +520,21 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color(0xFFFFCD81), Color(0xFFF3AF4A))
+                )
+            )
             .padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "App Logo",
+            modifier = Modifier.size(120.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
         Text(text = "CalorIQ", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(24.dp))
         TextField(
@@ -470,7 +564,8 @@ fun LoginScreen(
                     errorMessage.value = "Invalid email or password"
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A8E5E))
         ) {
             Text("Login", style = MaterialTheme.typography.bodyLarge)
         }
@@ -499,6 +594,11 @@ fun RegisterScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color(0xFFFFCD81), Color(0xFFF3AF4A))
+                )
+            )
             .padding(32.dp),
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -529,7 +629,8 @@ fun RegisterScreen(
                     errorMessage.value = ""
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A8E5E))
         ) { Text("Register") }
         Spacer(modifier = Modifier.height(16.dp))
         TextButton(onClick = onNavigateBack) { Text("Back to Login") }
@@ -546,40 +647,106 @@ data class ScanHistoryItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(onNavigateBack: () -> Unit, onLogout: () -> Unit, onChangeInfoClick: () -> Unit) {
+fun ProfileScreen(
+    onNavigateBack: () -> Unit,
+    onLogout: () -> Unit,
+    onChangeInfoClick: () -> Unit,
+    navController: NavController,
+    currentRoute: String?
+) {
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Profile") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        }
+        bottomBar = { BottomNavBar(navController = navController, currentRoute = currentRoute) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .verticalScroll(rememberScrollState())
         ) {
-            Icon(
-                imageVector = Icons.Filled.Person,
-                contentDescription = "Profile Picture",
+            // Header
+            Box(
                 modifier = Modifier
-                    .size(128.dp)
-                    .clip(CircleShape),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            Button(onClick = onChangeInfoClick) { Text("Change Info") }
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onLogout) { Text("Log Out") }
+                    .fillMaxWidth()
+                    .height(132.dp)
+                    .background(
+                        color = Color(0xFFF3AF4A),
+                        shape = RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp)
+                    )
+            ) {
+                IconButton(
+                    onClick = onNavigateBack,
+                    modifier = Modifier.align(Alignment.CenterStart).padding(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.size(40.dp).background(Color.Black, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    }
+                }
+                Text(
+                    text = "My Profile",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+            
+            // Avatar
+            Column(
+                modifier = Modifier.fillMaxWidth().offset(y = (-64).dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.user_avatar),
+                    contentDescription = "Profile Picture",
+                    modifier = Modifier
+                        .size(128.dp)
+                        .clip(CircleShape)
+                        .border(4.dp, Color.White, CircleShape)
+                )
+            }
+
+            // Options
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp).offset(y = (-32).dp)
+            ) {
+                ProfileOptionItem(
+                    iconResId = R.drawable.ic_profile_option,
+                    text = "Change Info",
+                    onClick = onChangeInfoClick
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                ProfileOptionItem(
+                    iconResId = R.drawable.ic_profile_option,
+                    text = "Log Out",
+                    onClick = onLogout
+                )
+            }
         }
+    }
+}
+
+@Composable
+fun ProfileOptionItem(iconResId: Int, text: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp, horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Image(
+            painter = painterResource(id = iconResId),
+            contentDescription = null,
+            modifier = Modifier.size(40.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(text = text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Icon(
+            imageVector = Icons.Default.ArrowForward,
+            contentDescription = "Go",
+            modifier = Modifier.size(24.dp)
+        )
     }
 }
 
@@ -644,71 +811,67 @@ fun ChangeInfoScreen(
 @Composable
 fun DashboardScreen(
     history: List<ScanHistoryItem>,
-    onScanFoodClick: () -> Unit,
-    onProfileClick: () -> Unit,
+    navController: NavController,
+    currentRoute: String?,
     onHistoryItemClick: (ScanHistoryItem) -> Unit
 ) {
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("CalorIQ") },
-                actions = {
-                    IconButton(onClick = onProfileClick) {
-                        Icon(Icons.Filled.Person, contentDescription = "Profile")
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onScanFoodClick) {
-                Row(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Icon(Icons.Filled.Add, contentDescription = "Scan Food")
-                    Spacer(Modifier.width(8.dp))
-                    Text("Scan Food")
-                }
-            }
-        },
-        floatingActionButtonPosition = FabPosition.Center,
+        bottomBar = { BottomNavBar(navController = navController, currentRoute = currentRoute) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            val totalCalories = history.sumOf { it.calories }
-            val lastScanCalories = history.firstOrNull()?.calories ?: 0
-
-            SummaryOverview(totalCalories = totalCalories, lastScanCalories = lastScanCalories)
+            Header(onProfileClick = { navController.navigate("profile") })
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Track your",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Text(
+                text = "Diet journey",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
             RecentHistoryFeed(history = history, onItemClick = onHistoryItemClick)
         }
     }
 }
 
 @Composable
-fun SummaryOverview(totalCalories: Int, lastScanCalories: Int) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+fun Header(onProfileClick: () -> Unit) {
+    Box(contentAlignment = Alignment.TopCenter) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(132.dp)
+                .background(
+                    color = Color(0xFFF3AF4A),
+                    shape = RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp)
+                )
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 32.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Daily Summary", style = MaterialTheme.typography.headlineSmall)
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Total Intake", style = MaterialTheme.typography.titleMedium)
-                    Text("$totalCalories kcal", style = MaterialTheme.typography.bodyLarge)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Last Scan", style = MaterialTheme.typography.titleMedium)
-                    Text("$lastScanCalories kcal", style = MaterialTheme.typography.bodyLarge)
-                }
+            Image(
+                painter = painterResource(id = R.drawable.user_avatar),
+                contentDescription = "User Avatar",
+                modifier = Modifier
+                    .size(width = 74.dp, height = 56.dp)
+                    .clip(CircleShape)
+                    .clickable { onProfileClick() }
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(text = "Welcome", style = MaterialTheme.typography.bodyLarge)
+                Text(text = "Tony", style = MaterialTheme.typography.headlineSmall)
             }
         }
     }
@@ -716,12 +879,17 @@ fun SummaryOverview(totalCalories: Int, lastScanCalories: Int) {
 
 @Composable
 fun RecentHistoryFeed(history: List<ScanHistoryItem>, onItemClick: (ScanHistoryItem) -> Unit) {
+    val today = SimpleDateFormat("yyyy, MMM dd", Locale.getDefault()).format(Date())
+
     Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-        Text("Recent History", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 8.dp))
+        Text(
+            text = today,
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 8.dp)
+        )
         LazyColumn {
             items(history) { item ->
                 HistoryItemCard(item = item, onClick = { onItemClick(item) })
-                Divider() // Add a divider between items
             }
         }
     }
@@ -733,14 +901,101 @@ fun HistoryItemCard(item: ScanHistoryItem, onClick: () -> Unit) {
         SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(item.timestamp))
     }
 
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp, horizontal = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFF3AF4A))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val imageRes = foodReports[item.foodReportId]?.imageResId ?: R.drawable.ic_launcher_background
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = item.foodName,
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = item.foodName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                Text(text = "${item.calories} kcal", style = MaterialTheme.typography.bodyMedium)
+                Text(text = formattedTimestamp, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
+            IconButton(onClick = onClick) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Color(0xFFF3AF4A), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Color.White, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = "Go to details",
+                            tint = Color.Black
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BottomNavBar(navController: NavController, currentRoute: String?) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 8.dp, horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(16.dp)
+            .background(Color.White, RoundedCornerShape(24.dp))
+            .padding(8.dp),
+        horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = "${item.foodName} - ${item.calories} kcal • $formattedTimestamp", style = MaterialTheme.typography.bodyLarge)
+        val homeButtonColor = if (currentRoute == "dashboard") Color(0xFFF3AF4A) else Color.Transparent
+        val homeContentColor = if (currentRoute == "dashboard") Color.White else Color.Black
+        Button(
+            onClick = { navController.navigate("dashboard") },
+            colors = ButtonDefaults.buttonColors(containerColor = homeButtonColor, contentColor = homeContentColor),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Icon(Icons.Default.Home, contentDescription = "Home")
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Home")
+        }
+
+        FloatingActionButton(
+            onClick = { navController.navigate("scan") },
+            containerColor = Color(0xFFF3AF4A),
+            contentColor = Color.White
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Scan Food")
+        }
+
+        val profileButtonColor = if (currentRoute == "profile") Color(0xFFF3AF4A) else Color.Transparent
+        val profileContentColor = if (currentRoute == "profile") Color.White else Color.Black
+        Button(
+            onClick = { navController.navigate("profile") },
+            colors = ButtonDefaults.buttonColors(containerColor = profileButtonColor, contentColor = profileContentColor),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Icon(Icons.Default.Person, contentDescription = "Profile")
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Profile")
+        }
     }
 }
